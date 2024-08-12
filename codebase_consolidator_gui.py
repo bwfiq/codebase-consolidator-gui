@@ -1,7 +1,7 @@
 import os
 import sys
 import tkinter as tk
-from tkinter import filedialog, messagebox, Scrollbar, Listbox
+from tkinter import filedialog, messagebox, Scrollbar, Frame, Canvas
 
 class CodebaseConsolidatorApp:
     def __init__(self, root, initial_dir=None):
@@ -10,6 +10,10 @@ class CodebaseConsolidatorApp:
 
         # Define gitignore options
         self.gitignore_options = ["None", "Python", "Java", "Node", "C++", "C#", "Django", "Flask"]
+
+        # Initialize file_vars and file_checkbuttons
+        self.file_vars = {}
+        self.file_checkbuttons = {}
 
         # Create and place widgets
         self.create_widgets()
@@ -35,15 +39,20 @@ class CodebaseConsolidatorApp:
         self.gitignore_menu = tk.OptionMenu(self.root, self.gitignore_var, *self.gitignore_options)
         self.gitignore_menu.grid(row=1, column=1, padx=10, pady=5, sticky='ew')
 
-        # File Listbox
+        # File Canvas and Scrollbar
         tk.Label(self.root, text="Files to Consolidate:").grid(row=2, column=0, padx=10, pady=5, sticky='w')
-        self.file_listbox = Listbox(self.root, selectmode='multiple')
-        self.file_listbox.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky='nsew')
+        self.canvas = Canvas(self.root)
+        self.canvas.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky='nsew')
 
-        # Add scrollbar
-        self.scrollbar = Scrollbar(self.root, orient='vertical', command=self.file_listbox.yview)
+        self.scrollbar = Scrollbar(self.root, orient='vertical', command=self.canvas.yview)
         self.scrollbar.grid(row=2, column=3, sticky='ns')
-        self.file_listbox.config(yscrollcommand=self.scrollbar.set)
+
+        self.canvas.config(yscrollcommand=self.scrollbar.set)
+
+        # Frame inside the Canvas
+        self.file_frame = Frame(self.canvas)
+        self.file_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.create_window((0, 0), window=self.file_frame, anchor="nw")
 
         # Action Buttons
         button_frame = tk.Frame(self.root)
@@ -76,7 +85,11 @@ class CodebaseConsolidatorApp:
             self.populate_file_list(directory)
 
     def populate_file_list(self, directory):
-        self.file_listbox.delete(0, tk.END)  # Clear existing items
+        for widget in self.file_frame.winfo_children():
+            widget.destroy()  # Clear existing widgets
+
+        self.file_vars.clear()  # Clear existing file variables
+        self.file_checkbuttons.clear()  # Clear existing checkbuttons
 
         if not directory or not os.path.isdir(directory):  # Handle empty or invalid directory
             return
@@ -85,6 +98,7 @@ class CodebaseConsolidatorApp:
         gitignore_patterns = self.get_gitignore_patterns(gitignore_selection)
         gitignore_patterns.append(".git")  # Always ignore Git files and directories
 
+        row = 0
         for root, dirs, files in os.walk(directory):
             # Skip directories matching gitignore patterns
             dirs[:] = [d for d in dirs if not any(ig in d for ig in gitignore_patterns)]
@@ -97,10 +111,30 @@ class CodebaseConsolidatorApp:
                 if self.is_text_file(file_path):
                     # Make file path relative to the root directory
                     relative_path = os.path.relpath(file_path, start=directory)
-                    self.file_listbox.insert(tk.END, relative_path)
+                    var = tk.BooleanVar(value=False)
+                    cb = tk.Checkbutton(self.file_frame, text=relative_path, variable=var, command=self.update_text_field)
+                    cb.grid(row=row, column=0, sticky='w')
+                    self.file_vars[relative_path] = var
+                    self.file_checkbuttons[relative_path] = cb
+                    row += 1
+
+        self.file_frame.update_idletasks()  # Ensure frame is updated
+        self.canvas.config(scrollregion=self.canvas.bbox("all"))  # Update scroll region
+
+    def update_text_field(self):
+        selected_files = [path for path, var in self.file_vars.items() if var.get()]
+        root_dir = self.root_dir_entry.get()
+        gitignore_selection = self.gitignore_var.get()
+
+        try:
+            # Convert relative paths back to absolute paths
+            selected_files = [os.path.join(root_dir, f) for f in selected_files]
+            self.generate_codebase_text(selected_files, gitignore_selection)
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
 
     def consolidate_codebase(self):
-        selected_files = [self.file_listbox.get(i) for i in self.file_listbox.curselection()]
+        selected_files = [path for path, var in self.file_vars.items() if var.get()]
         root_dir = self.root_dir_entry.get()
         gitignore_selection = self.gitignore_var.get()
 
