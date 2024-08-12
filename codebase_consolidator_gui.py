@@ -18,6 +18,8 @@ class CodebaseConsolidatorApp:
         if initial_dir:
             self.root_dir_entry.insert(0, initial_dir)
             self.populate_file_list(initial_dir)
+        else:
+            self.root_dir_entry.insert(0, "")  # Ensure entry is blank if no directory
 
     def create_widgets(self):
         # Root Directory
@@ -75,6 +77,9 @@ class CodebaseConsolidatorApp:
 
     def populate_file_list(self, directory):
         self.file_listbox.delete(0, tk.END)  # Clear existing items
+
+        if not directory or not os.path.isdir(directory):  # Handle empty or invalid directory
+            return
 
         gitignore_selection = self.gitignore_var.get()
         gitignore_patterns = self.get_gitignore_patterns(gitignore_selection)
@@ -196,14 +201,6 @@ if __name__ == "__main__":
     initial_directory = None
     if len(sys.argv) > 1:
         initial_directory = sys.argv[1]
-    else:
-        print("No directory passed")
-        sys.exit(1)
-    
-    # Check if the directory is valid
-    if not os.path.isdir(initial_directory):
-        print(f"Invalid directory: {initial_directory}")
-        sys.exit(1)
     
     root = tk.Tk()
     app = CodebaseConsolidatorApp(root, initial_directory)
