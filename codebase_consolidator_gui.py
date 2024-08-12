@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, Scrollbar, Frame, Canvas
 
@@ -23,12 +24,14 @@ class CodebaseConsolidatorApp:
         self.create_widgets()
 
         if initial_dir:
+            self.root_dir_entry.config(state=tk.NORMAL)
             self.root_dir_entry.insert(0, initial_dir)
-            self.populate_file_list(initial_dir)
+            self.root_dir_entry.config(state=tk.DISABLED)
+            self.populate_file_list(Path(initial_dir))
 
     def create_widgets(self):
         tk.Label(self.root, text="Root Directory:").grid(row=0, column=0, padx=10, pady=5, sticky='w')
-        self.root_dir_entry = tk.Entry(self.root)
+        self.root_dir_entry = tk.Entry(self.root, state=tk.DISABLED)
         self.root_dir_entry.grid(row=0, column=1, padx=10, pady=5, sticky='ew')
         tk.Button(self.root, text="Browse...", command=self.browse_root_dir).grid(row=0, column=2, padx=10, pady=5)
 
@@ -57,7 +60,7 @@ class CodebaseConsolidatorApp:
         tk.Button(button_frame, text="Save", command=self.save_to_file).pack(side="left", padx=10)
         tk.Button(button_frame, text="Copy", command=self.copy_to_clipboard).pack(side="left", padx=10)
 
-        self.output_text = tk.Text(self.root, wrap='word')
+        self.output_text = tk.Text(self.root, wrap='word', state=tk.DISABLED)
         self.output_text.grid(row=0, column=4, rowspan=4, padx=10, pady=5, sticky='nsew')
 
         self.root.grid_rowconfigure(2, weight=1)
@@ -67,18 +70,21 @@ class CodebaseConsolidatorApp:
     def browse_root_dir(self):
         directory = filedialog.askdirectory()
         if directory:
+            path = Path(directory)
+            self.root_dir_entry.config(state=tk.NORMAL)
             self.root_dir_entry.delete(0, tk.END)
-            self.root_dir_entry.insert(0, directory)
-            self.populate_file_list(directory)
+            self.root_dir_entry.insert(0, path)
+            self.root_dir_entry.config(state=tk.DISABLED)
+            self.populate_file_list(path)
 
     def populate_file_list(self, directory):
+        if not directory.is_dir():
+            return
+
         for widget in self.file_frame.winfo_children():
             widget.destroy()
 
         self.file_vars.clear()
-
-        if not os.path.isdir(directory):
-            return
 
         gitignore_patterns = self.GITIGNORE_PATTERNS[self.gitignore_var.get()] + [".git"]
         row = 0
@@ -147,8 +153,10 @@ class CodebaseConsolidatorApp:
             except Exception as e:
                 output_lines.append(f"Error reading {file_path}: {e}\n\n")
 
+        self.output_text.config(state=tk.NORMAL)
         self.output_text.delete(1.0, tk.END)
         self.output_text.insert(tk.END, ''.join(output_lines))
+        self.output_text.config(state=tk.DISABLED)
 
     def save_to_file(self):
         root_dir = self.root_dir_entry.get()
