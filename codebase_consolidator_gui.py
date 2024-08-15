@@ -178,13 +178,17 @@ class CodebaseConsolidatorApp:
         gitignore_patterns = self.GITIGNORE_PATTERNS[gitignore_selection] + [".git"]
 
         output_lines = []
+        root_dir = self.root_dir_entry.get()  # Get the root directory
+
         for file_path in selected_files:
             if any(ig in file_path for ig in gitignore_patterns):
                 continue
 
             try:
+                # Get the relative path based on the root directory
+                relative_file_path = os.path.relpath(file_path, start=root_dir)
+                output_lines.append(f"--- {relative_file_path} ---\n")  # Use relative path
                 with open(file_path, 'r', encoding='utf-8') as infile:
-                    output_lines.append(f"--- {file_path} ---\n")
                     output_lines.append(infile.read())
                     output_lines.append("\n\n")
             except Exception as e:
